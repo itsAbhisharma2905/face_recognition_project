@@ -1,228 +1,237 @@
+# app.py
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
-import av
-import cv2
 import os
-import numpy as np
 import pickle
+import numpy as np
 import pandas as pd
-from datetime import datetime
-import csv
+import cv2
 from sklearn.neighbors import KNeighborsClassifier
+from datetime import datetime
+import time
+import csv
 from fpdf import FPDF
 import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+from email.message import EmailMessage
 
-# === SETTINGS ===
-DATA_DIR = "data"
-ATTENDANCE_DIR = "Attendance"
+# ------------------- CONFIG -------------------
+DATA_DIR = 'data'
+ATTENDANCE_DIR = 'Attendance'
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(ATTENDANCE_DIR, exist_ok=True)
 
-# === CONFIG ===
-st.set_page_config(page_title="Face Recognition System", layout="centered")
+ADMIN_CREDENTIALS = {"admin": "1234"}  # Change this!
 
-# === AUTH ===
-ADMIN_USERNAME = "Abhi"
-ADMIN_PASSWORD = "2905"
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+# ------------------- EMAIL ALERTS -------------------
+EMAIL_SENDER = "youremail@gmail.com"  # Replace
+EMAIL_PASSWORD = "your-app-password"  # Replace with app password
 
-# === EMAIL FUNCTION ===
-def send_email_alert(subject, body):
-    sender_email = "your_email@gmail.com"
-    receiver_email = "receiver_email@gmail.com"
-    password = "your_app_password"  # Use App Password for Gmail
-
-    message = MIMEMultipart()
-    message["From"] = sender_email
-    message["To"] = receiver_email
-    message["Subject"] = subject
-    message.attach(MIMEText(body, "plain"))
-
+def send_email_alert(subject, content, receiver="receiveremail@gmail.com"):
     try:
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(sender_email, password)
-        server.sendmail(sender_email, receiver_email, message.as_string())
-        server.quit()
+        msg = EmailMessage()
+        msg.set_content(content)
+        msg["Subject"] = subject
+        msg["From"] = EMAIL_SENDER
+        msg["To"] = receiver
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(EMAIL_SENDER, EMAIL_PASSWORD)
+            smtp.send_message(msg)
     except Exception as e:
-        st.warning(f"Failed to send email: {e}")
+        st.error(f"Email not sent: {e}")
 
-# === VIDEO PROCESSOR FOR FACE CAPTURE ===
-class FaceCapture(VideoProcessorBase):
-    def __init__(self):
-        self.frames = []
-        self.name = None
-        self.capture_enabled = False
-        self.facedetect = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+# ------------------- UTILS -------------------
+def speak(text):
+    pass  # Skipped TTS for web app (optional)
 
-    def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
-        img = frame.to_ndarray(format="bgr24")
+def save_face(name):
+    video = cv2.VideoCapture(0)
+    facedetect = cv2.CascadeClassifier(f'{DATA_DIR}/haarcascade_frontalface_default.xml')
+    faces_data = []
+    i = 0
 
-        if img is None or img.size == 0:
-            return av.VideoFrame.from_ndarray(np.zeros((480, 640, 3), dtype=np.uint8), format="bgr24")
+    st.info("Capturing face. Press 'Q' in webcam window to stop.")
 
-        if self.capture_enabled and self.name:
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            faces = self.facedetect.detectMultiScale(gray, 1.3, 5)
-            for (x, y, w, h) in faces:
-                face = cv2.resize(img[y:y + h, x:x + w], (50, 50))
-                if len(self.frames) < 100:
-                    self.frames.append(face)
-                cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
-        return av.VideoFrame.from_ndarray(img, format="bgr24")
+    while True:
+        ret, frame = video.read()
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = facedetect.detectMultiScale(gray, 1.3, 5)
+        for (x, y, w, h) in faces:
+            crop_img = frame[y:y+h, x:x+w, :]
+            resized_img = cv2.resize(crop_img, (50, 50))
+            if len(faces_data) <= 100 and i % 10 == 0:
+                faces_data.append(resized_img)
+            i += 1
+            cv2.putText(frame, str(len(faces_data)), (50, 50), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 1)
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 1)
+        cv2.imshow("Adding Face", frame)
+        k = cv2.waitKey(1)
+        if k == ord('q') or len(faces_data) == 100:
+            break
 
-# === SAVE FACE TO FILE ===
-def save_face_to_data(name, faces_data):
-    faces_data = np.asarray(faces_data).reshape(len(faces_data), -1)
-    name_path = f"{DATA_DIR}/names.pkl"
-    faces_path = f"{DATA_DIR}/faces_data.pkl"
+    video.release()
+    cv2.destroyAllWindows()
 
-    names = []
-    faces = np.empty((0, 7500))
+    faces_data = np.asarray(faces_data).reshape(100, -1)
 
-    if os.path.exists(name_path):
-        with open(name_path, "rb") as f:
+    # Save data
+    names_path = os.path.join(DATA_DIR, 'names.pkl')
+    faces_path = os.path.join(DATA_DIR, 'faces_data.pkl')
+
+    if not os.path.exists(names_path):
+        names = [name] * 100
+    else:
+        with open(names_path, 'rb') as f:
             names = pickle.load(f)
+        names.extend([name] * 100)
 
-    if os.path.exists(faces_path):
-        with open(faces_path, "rb") as f:
-            faces = pickle.load(f)
-
-    names += [name] * len(faces_data)
-    faces = np.append(faces, faces_data, axis=0)
-
-    with open(name_path, "wb") as f:
+    with open(names_path, 'wb') as f:
         pickle.dump(names, f)
-    with open(faces_path, "wb") as f:
+
+    if not os.path.exists(faces_path):
+        faces = faces_data
+    else:
+        with open(faces_path, 'rb') as f:
+            faces = pickle.load(f)
+        faces = np.append(faces, faces_data, axis=0)
+
+    with open(faces_path, 'wb') as f:
         pickle.dump(faces, f)
 
-    send_email_alert("Face Registered", f"{name}'s face has been saved to the system.")
+    st.success(f"{name}'s face added.")
+    send_email_alert("New Face Added", f"New face data added for {name}.")
 
-# === ATTENDANCE MARKING ===
-def mark_attendance_live():
-    with open(f"{DATA_DIR}/names.pkl", "rb") as f:
-        labels = pickle.load(f)
-    with open(f"{DATA_DIR}/faces_data.pkl", "rb") as f:
-        faces_data = pickle.load(f)
+def mark_attendance():
+    video = cv2.VideoCapture(0)
+    facedetect = cv2.CascadeClassifier(f'{DATA_DIR}/haarcascade_frontalface_default.xml')
+
+    with open(f'{DATA_DIR}/names.pkl', 'rb') as f:
+        LABELS = pickle.load(f)
+    with open(f'{DATA_DIR}/faces_data.pkl', 'rb') as f:
+        FACES = pickle.load(f)
 
     knn = KNeighborsClassifier(n_neighbors=5)
-    knn.fit(faces_data, labels)
+    knn.fit(FACES, LABELS)
 
-    class AttendanceProcessor(VideoProcessorBase):
-        def __init__(self):
-            self.facedetect = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-            self.marked = set()
+    existing_names = []
 
-        def recv(self, frame):
-            img = frame.to_ndarray(format="bgr24")
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            faces = self.facedetect.detectMultiScale(gray, 1.3, 5)
+    while True:
+        ret, frame = video.read()
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = facedetect.detectMultiScale(gray, 1.3, 5)
+        for (x, y, w, h) in faces:
+            crop_img = frame[y:y+h, x:x+w, :]
+            resized_img = cv2.resize(crop_img, (50, 50)).flatten().reshape(1, -1)
+            output = knn.predict(resized_img)[0]
 
-            for (x, y, w, h) in faces:
-                crop = img[y:y+h, x:x+w]
-                resized = cv2.resize(crop, (50, 50)).flatten().reshape(1, -1)
-                pred = knn.predict(resized)[0]
-                timestamp = datetime.now().strftime("%H:%M:%S")
-                date = datetime.now().strftime("%d-%m-%Y")
-                csv_path = f"{ATTENDANCE_DIR}/Attendance_{date}.csv"
+            ts = time.time()
+            date = datetime.fromtimestamp(ts).strftime("%d-%m-%Y")
+            timestamp = datetime.fromtimestamp(ts).strftime("%H:%M-%S")
+            file_path = os.path.join(ATTENDANCE_DIR, f'Attendance_{date}.csv')
+            exist = os.path.isfile(file_path)
 
-                if pred not in self.marked:
-                    self.marked.add(pred)
-                    if not os.path.exists(csv_path):
-                        with open(csv_path, "w", newline="") as f:
-                            writer = csv.writer(f)
-                            writer.writerow(["NAME", "TIME"])
-                    with open(csv_path, "a", newline="") as f:
+            if output not in existing_names:
+                if not exist:
+                    with open(file_path, 'w', newline='') as f:
                         writer = csv.writer(f)
-                        writer.writerow([pred, timestamp])
-                    send_email_alert("Attendance Marked", f"{pred} marked present at {timestamp}.")
+                        writer.writerow(["NAME", "TIME"])
+                with open(file_path, 'a', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow([output, timestamp])
+                existing_names.append(output)
+                st.success(f"Attendance marked for {output}")
+                send_email_alert("Attendance Marked", f"{output} marked present at {timestamp}")
 
-                cv2.putText(img, pred, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
-                cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 255, 0), 2)
+            cv2.putText(frame, output, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
 
-            return av.VideoFrame.from_ndarray(img, format="bgr24")
+        cv2.imshow("Attendance", frame)
+        if cv2.waitKey(1) == ord('q'):
+            break
 
-    webrtc_streamer(key="attendance", video_processor_factory=AttendanceProcessor)
+    video.release()
+    cv2.destroyAllWindows()
 
-# === ATTENDANCE DASHBOARD ===
-def show_dashboard():
-    st.header("📊 Attendance Dashboard")
-
-    selected_date = st.date_input("Select Date", datetime.today())
-    date_str = selected_date.strftime("%d-%m-%Y")
-    file_path = f"{ATTENDANCE_DIR}/Attendance_{date_str}.csv"
-
+def view_attendance():
+    date = st.date_input("Select Date")
+    file_path = os.path.join(ATTENDANCE_DIR, f"Attendance_{date.strftime('%d-%m-%Y')}.csv")
     if os.path.exists(file_path):
         df = pd.read_csv(file_path)
         st.dataframe(df)
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("📁 Export to Excel"):
-                df.to_excel(f"Attendance_{date_str}.xlsx", index=False)
-                st.success("Exported to Excel!")
-
-        with col2:
-            if st.button("🧾 Export to PDF"):
-                pdf = FPDF()
-                pdf.add_page()
-                pdf.set_font("Arial", size=12)
-                pdf.cell(200, 10, txt=f"Attendance Report - {date_str}", ln=True, align='C')
-                for i in range(len(df)):
-                    row = df.iloc[i]
-                    pdf.cell(200, 10, txt=f"{row['NAME']} - {row['TIME']}", ln=True)
-                pdf.output(f"Attendance_{date_str}.pdf")
-                st.success("Exported to PDF!")
+        if st.button("Export to PDF"):
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", size=12)
+            for i in range(len(df)):
+                pdf.cell(200, 10, txt=f"{df.iloc[i, 0]} - {df.iloc[i, 1]}", ln=True)
+            pdf.output("Attendance_Report.pdf")
+            st.success("Exported to Attendance_Report.pdf")
     else:
-        st.warning("No attendance found for this date.")
+        st.warning("No data found for selected date.")
 
-# === MAIN UI ===
-# ... [rest of your code above remains the same] ...
+def show_dashboard():
+    records = []
+    for file in os.listdir(ATTENDANCE_DIR):
+        if file.endswith(".csv"):
+            df = pd.read_csv(os.path.join(ATTENDANCE_DIR, file))
+            if "NAME" in df.columns:
+                records.extend(df["NAME"].tolist())
+    if records:
+        df_stats = pd.DataFrame(records, columns=["Name"])
+        count = df_stats["Name"].value_counts().reset_index()
+        count.columns = ["Name", "Attendance Count"]
+        st.subheader("📊 Attendance Summary")
+        st.bar_chart(data=count.set_index("Name"))
+    else:
+        st.info("No attendance data available.")
 
-# === MAIN INTERFACE ===
-if not st.session_state.logged_in:
-    st.title("🔐 Admin Login")
-    uname = st.text_input("Username")
-    pwd = st.text_input("Password", type="password")
+# ------------------- STREAMLIT UI -------------------
+st.set_page_config(page_title="📸 Smart Attendance", layout="centered")
 
+st.markdown("""
+    <style>
+        body {
+            background-color: #1e1e1e;
+            color: white;
+        }
+        .css-1v0mbdj {
+            background-color: #121212;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+st.title("📸 Smart Face Recognition Attendance System")
+
+if "admin_logged_in" not in st.session_state:
+    st.session_state["admin_logged_in"] = False
+
+if not st.session_state["admin_logged_in"]:
+    st.subheader("🔐 Admin Login")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
     if st.button("Login"):
-        if uname == ADMIN_USERNAME and pwd == ADMIN_PASSWORD:
-            st.session_state.logged_in = True
-            st.success("Logged in successfully!")
+        if username in ADMIN_CREDENTIALS and ADMIN_CREDENTIALS[username] == password:
+            st.success("Login successful!")
+            st.session_state["admin_logged_in"] = True
             st.rerun()
         else:
             st.error("Invalid credentials")
 else:
-    st.sidebar.title("📋 Menu")
-    option = st.sidebar.radio("Select Option", ["📤 Upload Face Data", "📝 Mark Attendance", "📊 Dashboard", "🚪 Logout"])
-
-    if option == "📤 Upload Face Data":
-        st.title("Upload Face Data (Cloud Friendly)")
-        uploaded_faces = st.file_uploader("Upload `faces_data.pkl`", type=["pkl"])
-        uploaded_names = st.file_uploader("Upload `names.pkl`", type=["pkl"])
-
-        if uploaded_faces and uploaded_names:
-            with open(os.path.join(DATA_DIR, "faces_data.pkl"), "wb") as f:
-                f.write(uploaded_faces.getbuffer())
-            with open(os.path.join(DATA_DIR, "names.pkl"), "wb") as f:
-                f.write(uploaded_names.getbuffer())
-            st.success("Face data uploaded successfully!")
-
-    elif option == "📝 Mark Attendance":
-        st.title("Real-Time Attendance")
-        try:
-            mark_attendance_live()
-        except Exception as e:
-            st.error(f"Webcam not accessible. Error: {e}")
-            st.info("Try running locally for real-time webcam access.")
-
-    elif option == "📊 Dashboard":
+    menu = st.sidebar.selectbox("Menu", ["Add Face", "Mark Attendance", "View Attendance", "Dashboard", "Logout"])
+    if menu == "Add Face":
+        name = st.text_input("Enter Name")
+        if st.button("Capture Face"):
+            if name:
+                save_face(name)
+            else:
+                st.warning("Enter a valid name.")
+    elif menu == "Mark Attendance":
+        st.warning("Press 'Q' in webcam to stop.")
+        if st.button("Start Face Recognition"):
+            mark_attendance()
+    elif menu == "View Attendance":
+        view_attendance()
+    elif menu == "Dashboard":
         show_dashboard()
-
-    elif option == "🚪 Logout":
-        st.session_state.logged_in = False
-        st.success("Logged out successfully.")
+    elif menu == "Logout":
+        st.session_state["admin_logged_in"] = False
         st.rerun()
