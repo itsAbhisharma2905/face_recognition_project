@@ -1,7 +1,9 @@
 streamlit
 streamlit-webrtc
-opencv-python
+opencv-python-headless
 numpy
 pandas
 scikit-learn
 fpdf
+email-validator
+matplotlib
