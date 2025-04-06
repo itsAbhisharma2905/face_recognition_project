@@ -5,4 +5,3 @@ numpy
 pandas
 scikit-learn
 fpdf
-av
