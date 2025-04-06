@@ -1,4 +1,6 @@
 🎯 Face Recognition Attendance System with Streamlit
+
+
 A modern, secure, and real-time face recognition attendance system with an intuitive Streamlit interface. It uses machine learning (KNN) for face recognition and supports webcam integration directly in-browser using Streamlit-WebRTC, making it 100% deployable on Streamlit Cloud. 🌐💻
 
 🚀 Features
