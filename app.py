@@ -196,27 +196,18 @@ else:
     st.sidebar.title("📋 Menu")
     option = st.sidebar.radio("Choose Option", ["➕ Add Face", "📝 Mark Attendance", "📊 Dashboard", "🚪 Logout"])
 
-    if option == "➕ Add Face":
-        st.title("Register New Face")
-        name = st.text_input("Enter Name")
-        processor = FaceCapture()
-        ctx = webrtc_streamer(key="add", video_processor_factory=lambda: processor)
+    elif option == "➕ Add Face":
+    st.title("Upload Face Data (Since webcam is unavailable)")
 
-        if st.button("🎥 Start Capturing"):
-            if name:
-                processor.name = name
-                processor.capture_enabled = True
-                st.info("Capturing started...")
-            else:
-                st.warning("Enter a name first.")
+    uploaded_faces = st.file_uploader("Upload faces_data.pkl", type=["pkl"])
+    uploaded_names = st.file_uploader("Upload names.pkl", type=["pkl"])
 
-        if st.button("💾 Save Face"):
-            if processor.frames:
-                save_face_to_data(name, processor.frames)
-                st.success(f"Saved {len(processor.frames)} frames for {name}")
-                st.rerun()
-            else:
-                st.warning("No face data to save.")
+    if uploaded_faces and uploaded_names:
+        with open(os.path.join(DATA_DIR, "faces_data.pkl"), "wb") as f:
+            f.write(uploaded_faces.getbuffer())
+        with open(os.path.join(DATA_DIR, "names.pkl"), "wb") as f:
+            f.write(uploaded_names.getbuffer())
+        st.success("Face data uploaded and saved successfully!")
 
     elif option == "📝 Mark Attendance":
         st.title("📸 Mark Attendance in Real-Time")
