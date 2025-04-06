@@ -1,0 +1,8 @@
+streamlit
+streamlit-webrtc
+opencv-python
+numpy
+pandas
+scikit-learn
+fpdf
+av
