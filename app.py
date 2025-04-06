@@ -1,4 +1,5 @@
-# app.py
+# app.py (Enhanced GUI Version)
+
 import streamlit as st
 import os
 import pickle
@@ -20,11 +21,10 @@ os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(ATTENDANCE_DIR, exist_ok=True)
 
 ADMIN_CREDENTIALS = {"admin": "1234"}  # Change this!
+EMAIL_SENDER = "youremail@gmail.com"
+EMAIL_PASSWORD = "your-app-password"
 
-# ------------------- EMAIL ALERTS -------------------
-EMAIL_SENDER = "youremail@gmail.com"  # Replace
-EMAIL_PASSWORD = "your-app-password"  # Replace with app password
-
+# ------------------- EMAIL -------------------
 def send_email_alert(subject, content, receiver="receiveremail@gmail.com"):
     try:
         msg = EmailMessage()
@@ -37,19 +37,16 @@ def send_email_alert(subject, content, receiver="receiveremail@gmail.com"):
             smtp.login(EMAIL_SENDER, EMAIL_PASSWORD)
             smtp.send_message(msg)
     except Exception as e:
-        st.error(f"Email not sent: {e}")
+        st.error(f"📧 Email not sent: {e}")
 
-# ------------------- UTILS -------------------
-def speak(text):
-    pass  # Skipped TTS for web app (optional)
-
+# ------------------- FACE CAPTURE -------------------
 def save_face(name):
     video = cv2.VideoCapture(0)
     facedetect = cv2.CascadeClassifier(f'{DATA_DIR}/haarcascade_frontalface_default.xml')
     faces_data = []
     i = 0
 
-    st.info("Capturing face. Press 'Q' in webcam window to stop.")
+    st.info("📷 Capturing face. Press 'Q' in webcam window to stop.")
 
     while True:
         ret, frame = video.read()
@@ -64,16 +61,13 @@ def save_face(name):
             cv2.putText(frame, str(len(faces_data)), (50, 50), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 1)
             cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 1)
         cv2.imshow("Adding Face", frame)
-        k = cv2.waitKey(1)
-        if k == ord('q') or len(faces_data) == 100:
+        if cv2.waitKey(1) == ord('q') or len(faces_data) == 100:
             break
 
     video.release()
     cv2.destroyAllWindows()
 
     faces_data = np.asarray(faces_data).reshape(100, -1)
-
-    # Save data
     names_path = os.path.join(DATA_DIR, 'names.pkl')
     faces_path = os.path.join(DATA_DIR, 'faces_data.pkl')
 
@@ -97,9 +91,10 @@ def save_face(name):
     with open(faces_path, 'wb') as f:
         pickle.dump(faces, f)
 
-    st.success(f"{name}'s face added.")
+    st.success(f"✅ {name}'s face added.")
     send_email_alert("New Face Added", f"New face data added for {name}.")
 
+# ------------------- ATTENDANCE -------------------
 def mark_attendance():
     video = cv2.VideoCapture(0)
     facedetect = cv2.CascadeClassifier(f'{DATA_DIR}/haarcascade_frontalface_default.xml')
@@ -111,7 +106,6 @@ def mark_attendance():
 
     knn = KNeighborsClassifier(n_neighbors=5)
     knn.fit(FACES, LABELS)
-
     existing_names = []
 
     while True:
@@ -138,7 +132,7 @@ def mark_attendance():
                     writer = csv.writer(f)
                     writer.writerow([output, timestamp])
                 existing_names.append(output)
-                st.success(f"Attendance marked for {output}")
+                st.success(f"🕒 Attendance marked for {output}")
                 send_email_alert("Attendance Marked", f"{output} marked present at {timestamp}")
 
             cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 255, 0), 2)
@@ -151,23 +145,25 @@ def mark_attendance():
     video.release()
     cv2.destroyAllWindows()
 
+# ------------------- VIEW ATTENDANCE -------------------
 def view_attendance():
-    date = st.date_input("Select Date")
+    date = st.date_input("📅 Select Date")
     file_path = os.path.join(ATTENDANCE_DIR, f"Attendance_{date.strftime('%d-%m-%Y')}.csv")
     if os.path.exists(file_path):
         df = pd.read_csv(file_path)
         st.dataframe(df)
-        if st.button("Export to PDF"):
+        if st.button("📄 Export to PDF"):
             pdf = FPDF()
             pdf.add_page()
             pdf.set_font("Arial", size=12)
             for i in range(len(df)):
                 pdf.cell(200, 10, txt=f"{df.iloc[i, 0]} - {df.iloc[i, 1]}", ln=True)
             pdf.output("Attendance_Report.pdf")
-            st.success("Exported to Attendance_Report.pdf")
+            st.success("✅ Exported to Attendance_Report.pdf")
     else:
-        st.warning("No data found for selected date.")
+        st.warning("⚠️ No data found for selected date.")
 
+# ------------------- DASHBOARD -------------------
 def show_dashboard():
     records = []
     for file in os.listdir(ATTENDANCE_DIR):
@@ -182,19 +178,28 @@ def show_dashboard():
         st.subheader("📊 Attendance Summary")
         st.bar_chart(data=count.set_index("Name"))
     else:
-        st.info("No attendance data available.")
+        st.info("📭 No attendance data available.")
 
 # ------------------- STREAMLIT UI -------------------
-st.set_page_config(page_title="📸 Smart Attendance", layout="centered")
+st.set_page_config(page_title="📸 Smart Attendance", layout="wide")
 
 st.markdown("""
     <style>
-        body {
-            background-color: #1e1e1e;
-            color: white;
+        .block-container {
+            padding-top: 2rem;
         }
-        .css-1v0mbdj {
-            background-color: #121212;
+        .sidebar .sidebar-content {
+            background-color: #0f1117;
+        }
+        .css-18e3th9 {
+            background-color: #111111;
+        }
+        .stButton button {
+            background-color: #04AA6D;
+            color: white;
+            border: none;
+            padding: 0.5em 1.5em;
+            border-radius: 10px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -206,32 +211,40 @@ if "admin_logged_in" not in st.session_state:
 
 if not st.session_state["admin_logged_in"]:
     st.subheader("🔐 Admin Login")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
+    col1, col2 = st.columns(2)
+    with col1:
+        username = st.text_input("Username")
+    with col2:
+        password = st.text_input("Password", type="password")
+    if st.button("🔓 Login"):
         if username in ADMIN_CREDENTIALS and ADMIN_CREDENTIALS[username] == password:
-            st.success("Login successful!")
             st.session_state["admin_logged_in"] = True
+            st.success("✅ Login successful!")
             st.rerun()
         else:
-            st.error("Invalid credentials")
+            st.error("❌ Invalid credentials")
 else:
-    menu = st.sidebar.selectbox("Menu", ["Add Face", "Mark Attendance", "View Attendance", "Dashboard", "Logout"])
+    st.sidebar.header("📁 Menu")
+    menu = st.sidebar.radio("Navigate", ["Add Face", "Mark Attendance", "View Attendance", "Dashboard", "Logout"])
     if menu == "Add Face":
+        st.header("➕ Add New Face")
         name = st.text_input("Enter Name")
-        if st.button("Capture Face"):
+        if st.button("📸 Capture Face"):
             if name:
                 save_face(name)
             else:
-                st.warning("Enter a valid name.")
+                st.warning("⚠️ Please enter a valid name.")
     elif menu == "Mark Attendance":
-        st.warning("Press 'Q' in webcam to stop.")
-        if st.button("Start Face Recognition"):
+        st.header("🧍 Face Recognition Attendance")
+        st.info("⚠️ Press 'Q' in webcam window to stop.")
+        if st.button("▶️ Start Face Recognition"):
             mark_attendance()
     elif menu == "View Attendance":
+        st.header("📖 Attendance Records")
         view_attendance()
     elif menu == "Dashboard":
         show_dashboard()
     elif menu == "Logout":
         st.session_state["admin_logged_in"] = False
         st.rerun()
+
