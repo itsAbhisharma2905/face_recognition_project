@@ -180,6 +180,9 @@ def show_dashboard():
         st.warning("No attendance found for this date.")
 
 # === MAIN UI ===
+# ... [rest of your code above remains the same] ...
+
+# === MAIN INTERFACE ===
 if not st.session_state.logged_in:
     st.title("🔐 Admin Login")
     uname = st.text_input("Username")
@@ -194,29 +197,32 @@ if not st.session_state.logged_in:
             st.error("Invalid credentials")
 else:
     st.sidebar.title("📋 Menu")
-    option = st.sidebar.radio("Choose Option", ["➕ Add Face", "📝 Mark Attendance", "📊 Dashboard", "🚪 Logout"])
+    option = st.sidebar.radio("Select Option", ["📤 Upload Face Data", "📝 Mark Attendance", "📊 Dashboard", "🚪 Logout"])
 
-    if option == "➕ Add Face":
-    st.title("Upload Face Data (Since webcam is unavailable)")
+    if option == "📤 Upload Face Data":
+        st.title("Upload Face Data (Cloud Friendly)")
+        uploaded_faces = st.file_uploader("Upload `faces_data.pkl`", type=["pkl"])
+        uploaded_names = st.file_uploader("Upload `names.pkl`", type=["pkl"])
 
-    uploaded_faces = st.file_uploader("Upload faces_data.pkl", type=["pkl"])
-    uploaded_names = st.file_uploader("Upload names.pkl", type=["pkl"])
-
-    if uploaded_faces and uploaded_names:
-        with open(os.path.join(DATA_DIR, "faces_data.pkl"), "wb") as f:
-            f.write(uploaded_faces.getbuffer())
-        with open(os.path.join(DATA_DIR, "names.pkl"), "wb") as f:
-            f.write(uploaded_names.getbuffer())
-        st.success("Face data uploaded and saved successfully!")
+        if uploaded_faces and uploaded_names:
+            with open(os.path.join(DATA_DIR, "faces_data.pkl"), "wb") as f:
+                f.write(uploaded_faces.getbuffer())
+            with open(os.path.join(DATA_DIR, "names.pkl"), "wb") as f:
+                f.write(uploaded_names.getbuffer())
+            st.success("Face data uploaded successfully!")
 
     elif option == "📝 Mark Attendance":
-        st.title("📸 Mark Attendance in Real-Time")
-        mark_attendance_live()
+        st.title("Real-Time Attendance")
+        try:
+            mark_attendance_live()
+        except Exception as e:
+            st.error(f"Webcam not accessible. Error: {e}")
+            st.info("Try running locally for real-time webcam access.")
 
     elif option == "📊 Dashboard":
         show_dashboard()
 
     elif option == "🚪 Logout":
         st.session_state.logged_in = False
-        st.success("Logged out.")
+        st.success("Logged out successfully.")
         st.rerun()
