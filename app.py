@@ -196,7 +196,7 @@ else:
     st.sidebar.title("📋 Menu")
     option = st.sidebar.radio("Choose Option", ["➕ Add Face", "📝 Mark Attendance", "📊 Dashboard", "🚪 Logout"])
 
-    elif option == "➕ Add Face":
+    if option == "➕ Add Face":
     st.title("Upload Face Data (Since webcam is unavailable)")
 
     uploaded_faces = st.file_uploader("Upload faces_data.pkl", type=["pkl"])
