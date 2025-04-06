@@ -21,7 +21,8 @@ ATTENDANCE_DIR = "Attendance"
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(ATTENDANCE_DIR, exist_ok=True)
 
-st.set_page_config(page_title="Face Recognition System", layout="centered", initial_sidebar_state="expanded")
+# === CONFIG ===
+st.set_page_config(page_title="Face Recognition System", layout="centered")
 
 # === AUTH ===
 ADMIN_USERNAME = "Abhi"
@@ -31,15 +32,14 @@ if "logged_in" not in st.session_state:
 
 # === EMAIL FUNCTION ===
 def send_email_alert(subject, body):
-    sender_email = "abhi.sharma2905@gmail.com"
-    receiver_email = "alisha.sharma6648@gmail.com"
-    password = "2905"
+    sender_email = "your_email@gmail.com"
+    receiver_email = "receiver_email@gmail.com"
+    password = "your_app_password"  # Use App Password for Gmail
 
     message = MIMEMultipart()
     message["From"] = sender_email
     message["To"] = receiver_email
     message["Subject"] = subject
-
     message.attach(MIMEText(body, "plain"))
 
     try:
@@ -57,7 +57,7 @@ class FaceCapture(VideoProcessorBase):
         self.frames = []
         self.name = None
         self.capture_enabled = False
-        self.facedetect = cv2.CascadeClassifier(f'{DATA_DIR}/haarcascade_frontalface_default.xml')
+        self.facedetect = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
     def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
         img = frame.to_ndarray(format="bgr24")
@@ -71,7 +71,7 @@ class FaceCapture(VideoProcessorBase):
                 cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
         return av.VideoFrame.from_ndarray(img, format="bgr24")
 
-# === ADD FACE LOGIC ===
+# === SAVE FACE ===
 def save_face_to_data(name, faces_data):
     faces_data = np.asarray(faces_data).reshape(len(faces_data), -1)
     name_path = f"{DATA_DIR}/names.pkl"
@@ -97,9 +97,9 @@ def save_face_to_data(name, faces_data):
     with open(faces_path, "wb") as f:
         pickle.dump(faces, f)
 
-    send_email_alert("Face Added", f"{name}'s face has been successfully registered!")
+    send_email_alert("Face Added", f"{name}'s face has been registered.")
 
-# === ATTENDANCE LOGIC ===
+# === MARK ATTENDANCE ===
 def mark_attendance_live():
     with open(f"{DATA_DIR}/names.pkl", "rb") as f:
         labels = pickle.load(f)
@@ -111,7 +111,7 @@ def mark_attendance_live():
 
     class AttendanceProcessor(VideoProcessorBase):
         def __init__(self):
-            self.facedetect = cv2.CascadeClassifier(f'{DATA_DIR}/haarcascade_frontalface_default.xml')
+            self.facedetect = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
             self.marked = set()
 
         def recv(self, frame):
@@ -145,7 +145,7 @@ def mark_attendance_live():
 
     webrtc_streamer(key="attendance", video_processor_factory=AttendanceProcessor)
 
-# === DASHBOARD ===
+# === DASHBOARD VIEW ===
 def show_dashboard():
     st.header("📊 Attendance Dashboard")
 
@@ -156,17 +156,19 @@ def show_dashboard():
     if os.path.exists(file_path):
         df = pd.read_csv(file_path)
         st.dataframe(df)
+
         col1, col2 = st.columns(2)
         with col1:
             if st.button("📁 Export to Excel"):
                 df.to_excel(f"Attendance_{date_str}.xlsx", index=False)
                 st.success("Exported to Excel!")
+
         with col2:
             if st.button("🧾 Export to PDF"):
                 pdf = FPDF()
                 pdf.add_page()
                 pdf.set_font("Arial", size=12)
-                pdf.cell(200, 10, txt="Attendance Report", ln=True, align='C')
+                pdf.cell(200, 10, txt=f"Attendance Report - {date_str}", ln=True, align='C')
                 for i in range(len(df)):
                     row = df.iloc[i]
                     pdf.cell(200, 10, txt=f"{row['NAME']} - {row['TIME']}", ln=True)
@@ -174,54 +176,53 @@ def show_dashboard():
                 st.success("Exported to PDF!")
     else:
         st.warning("No attendance found for this date.")
-
-# === MAIN PAGE ===
+# === MAIN INTERFACE ===
 if not st.session_state.logged_in:
     st.title("🔐 Admin Login")
     uname = st.text_input("Username")
     pwd = st.text_input("Password", type="password")
+
     if st.button("Login"):
         if uname == ADMIN_USERNAME and pwd == ADMIN_PASSWORD:
             st.session_state.logged_in = True
             st.success("Logged in successfully!")
-            st.experimental_rerun()
+            st.rerun()  # Note: Use `st.rerun()` for latest Streamlit version
         else:
             st.error("Invalid credentials")
 else:
     st.sidebar.title("📋 Menu")
-    option = st.sidebar.radio("Select Option", ["Add Face", "Mark Attendance", "Dashboard", "Logout"])
+    option = st.sidebar.radio("Select Option", ["➕ Add Face", "📝 Mark Attendance", "📊 Dashboard", "🚪 Logout"])
 
-    if option == "Add Face":
-        st.title("➕ Add Face")
-        name = st.text_input("Enter Name")
+    if option == "➕ Add Face":
+        st.title("Register New Face")
+        name = st.text_input("Enter Person's Name")
         processor = FaceCapture()
-        ctx = webrtc_streamer(key="add", video_processor_factory=lambda: processor)
+        ctx = webrtc_streamer(key="add_face", video_processor_factory=lambda: processor)
 
-        if st.button("Start Capturing"):
+        if st.button("🎥 Start Capturing"):
             if name:
                 processor.name = name
                 processor.capture_enabled = True
-                st.success("Capturing Started...")
+                st.info("Capturing started... Please wait.")
             else:
-                st.warning("Please enter name first")
+                st.warning("Please enter a name.")
 
-        if st.button("Save Face"):
+        if st.button("💾 Save Face"):
             if processor.frames:
                 save_face_to_data(name, processor.frames)
-                st.success("Face saved successfully!")
-                st.experimental_rerun()
+                st.success(f"Saved {len(processor.frames)} frames for {name}")
+                st.rerun()
             else:
-                st.error("No faces captured yet.")
+                st.warning("No face data captured yet.")
 
-    elif option == "Mark Attendance":
-        st.title("📝 Mark Attendance")
+    elif option == "📝 Mark Attendance":
+        st.title("Real-Time Attendance")
         mark_attendance_live()
 
-    elif option == "Dashboard":
+    elif option == "📊 Dashboard":
         show_dashboard()
 
-    elif option == "Logout":
+    elif option == "🚪 Logout":
         st.session_state.logged_in = False
-        st.success("Logged out")
+        st.success("Logged out successfully.")
         st.rerun()
-
