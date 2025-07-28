@@ -444,7 +444,7 @@ def user_management():
                     pickle.dump(new_faces, f)
                 
                 st.success(f"✅ User {name_to_delete} removed successfully.")
-                st.rerun()
+                st.experimental_rerun()
     except Exception as e:
         st.error(f"❌ Error loading user data: {e}")
 
@@ -569,7 +569,7 @@ def main():
                     if username in admin_credentials and admin_credentials[username] == password:
                         st.session_state['admin_logged_in'] = True
                         st.success("✅ Login successful!")
-                        st.rerun()
+                        st.experimental_rerun()
                     else:
                         st.error("❌ Invalid credentials")
                 
@@ -631,7 +631,7 @@ def main():
             
         elif selection == "Logout":
             st.session_state['admin_logged_in'] = False
-            st.rerun()
+            st.experimental_rerun()
 
 if __name__ == "__main__":
     main()
