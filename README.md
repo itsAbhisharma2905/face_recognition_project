@@ -1,82 +1,96 @@
-🎯 Face Recognition Attendance System with Streamlit
+# Face Emotion Detection
 
+A computer vision project exploring facial expression classification using image processing and machine learning.
 
-A modern, secure, and real-time face recognition attendance system with an intuitive Streamlit interface. It uses machine learning (KNN) for face recognition and supports webcam integration directly in-browser using Streamlit-WebRTC, making it 100% deployable on Streamlit Cloud. 🌐💻
+## Overview
 
-🚀 Features
-✅ Real-time face detection and recognition
-✅ Add new faces with names
-✅ Admin login system
-✅ Attendance marking with timestamp
-✅ Prevents duplicate attendance entries
-✅ View attendance records with date filters
-✅ Analytics dashboard (most frequent attendees, stats)
-✅ Export attendance as Excel/PDF
-✅ Built-in email alerts for successful attendance
-✅ Beautiful responsive UI with dark mode toggle
-✅ Streamlit-compatible webcam support (via streamlit-webrtc)
+Face Emotion Detection is an application designed to analyse facial images and classify visible facial expressions using a trained model.
 
-🧠 Tech Stack
+The project explores image processing, computer vision, model inference, and interactive application development.
 
-Python 🐍
+## Features
 
-OpenCV (Face Detection & Processing)
+- Image input
+- Facial region detection
+- Image preprocessing
+- Facial expression classification
+- Prediction result display
+- Streamlit-based interface, if configured
 
-scikit-learn (KNN Classifier)
+## Technology Stack
 
-Streamlit (Web UI)
+| Component | Technology |
+|---|---|
+| Language | Python |
+| Interface | Streamlit |
+| Computer Vision | OpenCV |
+| Image Processing | Pillow |
+| Numerical Processing | NumPy |
+| Model | Actual trained model and framework |
 
-streamlit-webrtc (In-browser webcam)
+## Workflow
 
-Pandas (Data Handling)
+1. Receive an image or supported video frame.
+2. Detect the facial region.
+3. Preprocess the detected face.
+4. Pass the processed input to the trained model.
+5. Display the predicted expression.
 
-fpdf (PDF export)
+## Installation
 
-smtplib (Email alerts)
+```bash
+git clone YOUR_REPOSITORY_URL
+cd YOUR_PROJECT_FOLDER
+```
 
-Matplotlib (Charts)
+```bash
+python -m venv venv
+```
 
-💡 How it Works
+Windows:
 
-Admin Login: Secure access using username & password.
+```bash
+venv\Scripts\activate
+```
 
-Add Face: Capture your face and store 100 facial samples.
+```bash
+pip install -r requirements.txt
+```
 
-Train KNN Model: Automatically updates when new data is added.
+If the project uses Streamlit:
 
-Mark Attendance: Recognizes face and logs attendance with time.
+```bash
+streamlit run app.py
+```
 
-Analytics: View records, filter by date, and export to Excel/PDF.
+## Model Evaluation
 
-Email Notification: Sends alerts after attendance is marked.
+Add the actual model details:
 
+- Dataset source
+- Expression classes
+- Model architecture
+- Training configuration
+- Accuracy
+- Precision and recall
+- Confusion matrix
 
-🔐 Admin Credentials
-Username	Password
-admin	      1234
+## Limitations and Responsible Use
 
+Facial expression classification is not a reliable way to determine a person's internal emotional state, intentions, personality, or mental health.
 
-📂 Project Structure
+Results may vary with lighting, camera quality, pose, occlusion, and dataset limitations.
 
-📁 Face-Attendance-App/
-├── app.py
-├── requirements.txt
-├── background.png (optional)
-├── 📁 data/
-│   ├── haarcascade_frontalface_default.xml
-│   ├── faces_data.pkl
-│   └── names.pkl
-├── 📁 Attendance/
-│   └── Attendance_<date>.csv
+## Future Improvements
 
+- Improved face detection
+- Better model evaluation
+- Real-time inference
+- Model explainability
+- Performance optimisation
 
-🤝 Contributing
-Feel free to fork, enhance, or suggest new features! Pull requests are welcome 🚀
+## Author
 
-🏆 Author
-Abhi-abhi.sharma2905@gmail.com
-📧 Feel free to connect for collaboration, project ideas, or contributions!
+Abhi Sharma
 
-⭐ If you like it...
-Give this repo a ⭐ and share it with your friends!
-Let's build cool stuff together! 💡🔥
+GitHub: https://github.com/itsAbhisharma2905
